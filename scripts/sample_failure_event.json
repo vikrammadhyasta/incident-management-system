@@ -1,0 +1,67 @@
+{
+  "_comment": "Sample failure event payload — RDBMS outage followed by MCP failure",
+  "scenario": "cascading_db_failure",
+  "events": [
+    {
+      "step": 1,
+      "description": "Primary RDBMS node connection failure",
+      "signals": [
+        {
+          "component_id": "POSTGRES_PRIMARY_01",
+          "component_type": "RDBMS",
+          "error_code": "PGCONN_REFUSED",
+          "message": "FATAL: connection to server at '10.0.1.15' failed: Connection refused",
+          "severity": "CRITICAL",
+          "latency_ms": null,
+          "source_host": "app-server-01",
+          "metadata": {
+            "db_host": "10.0.1.15",
+            "db_port": 5432,
+            "retry_count": 3
+          }
+        },
+        {
+          "component_id": "POSTGRES_PRIMARY_01",
+          "component_type": "RDBMS",
+          "error_code": "PGCONN_REFUSED",
+          "message": "pg_isready check FAILED — primary node not accepting connections",
+          "severity": "CRITICAL",
+          "source_host": "health-monitor-01"
+        }
+      ]
+    },
+    {
+      "step": 2,
+      "description": "MCP Host cascade failure triggered by RDBMS unavailability",
+      "signals": [
+        {
+          "component_id": "MCP_HOST_CLUSTER_02",
+          "component_type": "MCP_HOST",
+          "error_code": "MCP_HEALTH_TIMEOUT",
+          "message": "MCP Host unreachable — health probe timeout after 30s",
+          "severity": "CRITICAL",
+          "latency_ms": 30000,
+          "source_host": "mcp-monitor-01",
+          "metadata": {
+            "cascade_source": "POSTGRES_PRIMARY_01",
+            "probe_timeout_ms": 30000
+          }
+        }
+      ]
+    },
+    {
+      "step": 3,
+      "description": "Cache eviction storm — 100 signals, 1 WorkItem (debounce test)",
+      "repeat": 100,
+      "signal_template": {
+        "component_id": "CACHE_CLUSTER_01",
+        "component_type": "CACHE",
+        "error_code": "CACHE_EVICTION_STORM",
+        "message": "Cache hit rate dropped below threshold — eviction storm in progress",
+        "severity": "ERROR",
+        "latency_ms": 450,
+        "source_host": "redis-node-01"
+      }
+    }
+  ]
+}
